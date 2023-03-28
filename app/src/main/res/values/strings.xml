@@ -3,4 +3,5 @@
     <string name="ble_scan_title_pause">Scan en cours</string>
     <string name="ble_scan_title_play">Lancer le scan BLE</string>
     <string name="ble_scan_missing" />
+    <string name="device_led_text" />
 </resources>

@@ -1,55 +1,179 @@
 package fr.isen.colinepontal.androidsmartdevice
 
 import android.Manifest
-import android.app.Activity
+import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
+import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanResult
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import androidx.appcompat.app.AppCompatActivity
+import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
 import android.widget.Toast
-import androidx.core.app.ActivityCompat
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.LinearLayoutManager
 import fr.isen.colinepontal.androidsmartdevice.databinding.ActivityScanBinding
 
 class ScanActivity : AppCompatActivity() {
+
+
+
+    private val bluetoothAdapter: BluetoothAdapter? by
+    lazy(LazyThreadSafetyMode.NONE) {
+        val bluetoothManager =
+            getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+        bluetoothManager.adapter
+    }
+
+    val requestPermissionLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.RequestMultiplePermissions()
+        ) { permissions ->
+            if (permissions.all { it.value }) {
+                scanBLEDevices()
+            }
+        }
     private lateinit var binding: ActivityScanBinding
     private var mScanning = false
+
+    private val handler = Handler(Looper.getMainLooper())
+    private lateinit var scanAdapter: ScanAdapter
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val bluetoothAdapter= BluetoothAdapter.getDefaultAdapter()
         binding = ActivityScanBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        if (bluetoothAdapter?.isEnabled==true){
-            val toast1=Toast.makeText(applicationContext,"L'appareil est connecté", Toast.LENGTH_LONG)
+
+        if (bluetoothAdapter?.isEnabled == true) {
+            val toast1 =
+                Toast.makeText(applicationContext, "L'appareil est connecté", Toast.LENGTH_LONG)
             toast1.show()
-            binding.progressBar2.isVisible = false
-            binding.itemList.isVisible = false
-            binding.itemList.layoutManager = LinearLayoutManager(this)
-            binding.itemList.adapter = ScanAdapter(arrayListOf("Device 1", "Device 2", "Device 3"))
 
-
-            binding.scanTitle2.setOnClickListener {
-                togglePlayPauseAction()
-            }
-            binding.playPauseAction.setOnClickListener {
-                togglePlayPauseAction()
-            }
             scanDeviceWithPermissions()
-        }else{
+        } else {
             handleBLENotAvailable()
         }
 
+    }
+
+    @SuppressLint("MissingPermission")
+    override fun onStop(){
+        super.onStop()
+        if(bluetoothAdapter?.isEnabled==true && allPermissionsGranted()){
+            mScanning=false
+            bluetoothAdapter?.bluetoothLeScanner?.stopScan((leScanCallback))
+        }
+    }
+
+    private fun initToggleActions(){
+        binding.scanTitle2.setOnClickListener {
+            scanBLEDevices()
+        }
+        binding.playPauseAction.setOnClickListener {
+            scanBLEDevices()
+        }
+        binding.itemList.layoutManager = LinearLayoutManager(this)
+        scanAdapter = ScanAdapter(arrayListOf()){
+            val intent= Intent(this, DeviceActivity::class.java)
+            intent.putExtra("device",it)
+            startActivity(intent)
+        }
+        binding.itemList.adapter = scanAdapter
+    }
+
+    private fun scanDeviceWithPermissions() {
+        if (allPermissionsGranted()) {
+            initToggleActions()
+            scanBLEDevices()
+        } else {
+            requestPermissionLauncher.launch(getAllPermissions())
+        }
+    }
+
+
+    @SuppressLint("MissingPermission")
+    private fun scanBLEDevices() {
+        if (!mScanning) { // Stops scanning after a pre-defined scan period.
+            handler.postDelayed({
+                mScanning = false
+                bluetoothAdapter?.bluetoothLeScanner?.stopScan(leScanCallback)
+                togglePlayPauseAction()
+            }, SCAN_PERIOD)
+            mScanning = true
+            bluetoothAdapter?.bluetoothLeScanner?.startScan(leScanCallback)
+        } else {
+            mScanning = false
+            bluetoothAdapter?.bluetoothLeScanner?.stopScan(leScanCallback)
+        }
+        togglePlayPauseAction()
+    }
+
+    private val leScanCallback: ScanCallback = object : ScanCallback() {
+        override fun onScanResult(callbackType: Int, result: ScanResult) {
+            super.onScanResult(callbackType, result)
+            Log.d("Scan","result: $result")
+            scanAdapter.addDevice(result.device)
+            scanAdapter.notifyDataSetChanged()
+        }
+    }
+
+
+
+
+
+    private fun allPermissionsGranted(): Boolean {
+        val allPermissions = getAllPermissions()
+        return allPermissions.all {
+            //permission ->
+            ContextCompat.checkSelfPermission(
+                this,
+                it
+            ) == PackageManager.PERMISSION_GRANTED
 
         }
-    private val REQUEST_ENABLE_BLUETOOTH = 1
-    private val REQUEST_LOCATION_PERMISSION = 2
+    }
+
+    private fun getAllPermissions(): Array<String> {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            arrayOf(
+                Manifest.permission.BLUETOOTH_ADMIN,
+                Manifest.permission.BLUETOOTH_CONNECT,
+                Manifest.permission.BLUETOOTH_SCAN,
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_BACKGROUND_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            )
+        } else {
+            arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            )
+        }
+    }
+
+    private fun handleBLENotAvailable() {
+        binding.scanTitle2.text = getString(R.string.ble_scan_missing)
+        val toast_err = Toast.makeText(
+            applicationContext,
+            "Votre appareil n'est pas connecté",
+            Toast.LENGTH_LONG
+        )
+        toast_err.show()
+        binding.progressBar2.isVisible = false
+        binding.itemList.isVisible = false
+    }
 
     private fun togglePlayPauseAction() {
-        mScanning = !mScanning
         if (mScanning) {
             binding.scanTitle2.text = getString(R.string.ble_scan_title_pause)
             binding.playPauseAction.setImageResource(R.drawable.oojs_ui_icon_pause_progressive_svg)
@@ -63,97 +187,9 @@ class ScanActivity : AppCompatActivity() {
         }
     }
 
-    private fun scanDeviceWithPermissions(){
-        if (allPermissionsGranted()){
-            scanBLEDevices()
-        }else{
-            requestPermissions()
-            //request permissions
-        }
-    }
-
-    private fun scanBLEDevices(){
-        if (!packageManager.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
-            handleBLENotAvailable()
-            return
-        }
-        togglePlayPauseAction()
-    }
-
-    private fun allPermissionsGranted():Boolean{
-        val allPermissions=getAllPermissions()
-        return allPermissions.all{permission ->
-            ContextCompat.checkSelfPermission(
-                this,
-                permission
-            ) == PackageManager.PERMISSION_GRANTED
-
-        }
-    }
-
-    private fun getAllPermissions(): Array<String>{
-        return arrayOf(
-            Manifest.permission.BLUETOOTH_ADMIN,
-            Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.ACCESS_BACKGROUND_LOCATION,
-            Manifest.permission.ACCESS_COARSE_LOCATION)
-    }
-
-    private fun requestPermissions() {
-        ActivityCompat.requestPermissions(
-            this,
-            getAllPermissions(),
-            REQUEST_LOCATION_PERMISSION
-        )
-    }
-
-
-    private fun handleBLENotAvailable(){
-        binding.scanTitle2.text=getString(R.string.ble_scan_missing)
-        val toast_err = Toast.makeText(
-            applicationContext,
-            "Votre appareil n'est pas connecté",
-            Toast.LENGTH_LONG
-        )
-        toast_err.show()
-        binding.progressBar2.isVisible = false
-        binding.itemList.isVisible = false
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults, )
-        when (requestCode) {
-            REQUEST_LOCATION_PERMISSION -> {
-                if (allPermissionsGranted()) {
-                    scanBLEDevices()
-                } else {
-                    // Permission refusée
-                }
-            }
-        }
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        when (requestCode) {
-            REQUEST_ENABLE_BLUETOOTH -> {
-                if (resultCode == Activity.RESULT_OK) {
-                    // Bluetooth activé
-                    scanBLEDevices()
-                } else {
-                    // Activation Bluetooth refusée
-                }
-            }
-        }
+    companion object {
+        private val SCAN_PERIOD: Long = 10000
     }
 
 
 }
-
-
-
-

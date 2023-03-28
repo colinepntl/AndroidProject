@@ -1,13 +1,29 @@
 package fr.isen.colinepontal.androidsmartdevice
 
 
+import android.annotation.SuppressLint
+import android.bluetooth.BluetoothDevice
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import fr.isen.colinepontal.androidsmartdevice.databinding.ActivityRecyclerViewAdaptaterBinding
 
 
-class ScanAdapter(var devices: ArrayList<String>) : RecyclerView.Adapter<ScanAdapter.ScanViewHolder>() {
+class ScanAdapter(var devices: ArrayList<BluetoothDevice>, var onDeviceClickListener: (BluetoothDevice) -> Unit) : RecyclerView.Adapter<ScanAdapter.ScanViewHolder>() {
+
+    fun addDevice(device: BluetoothDevice) {
+        var shouldAddDevice=true
+        devices.forEachIndexed { index, bluetoothDevice ->
+            if (bluetoothDevice.address == device.address) {
+                devices[index] = device
+                shouldAddDevice = false
+            }
+        }
+        if (shouldAddDevice) {
+            devices.add(device)
+        }
+
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ScanViewHolder {
         val inflater = LayoutInflater.from(parent.context)
@@ -18,17 +34,25 @@ class ScanAdapter(var devices: ArrayList<String>) : RecyclerView.Adapter<ScanAda
     override fun getItemCount(): Int = devices.size
 
 
+    @SuppressLint("MissingPermission")
     override fun onBindViewHolder(holder: ScanViewHolder, position: Int) {
-        //holder.DeviceName.text = devices[position]
+        holder.deviceAddress.text=devices[position].address
+        holder.deviceName.text=devices[position].name ?: "Inconnu"
+        holder.itemView.setOnClickListener{
+            onDeviceClickListener(devices[position])
+        }
 
     }
 
-    class ScanViewHolder(binding: ActivityRecyclerViewAdaptaterBinding) : RecyclerView.ViewHolder(binding.root) {
 
-        //val DeviceName: TextView =itemView.findViewById(R.id.deviceName)
-        //val macAddress: TextView =itemView.findViewById(R.id.macAddress)
-        //val card: ConstraintLayout =itemView.findViewById(R.id.cardDevice)
+    class ScanViewHolder(binding: ActivityRecyclerViewAdaptaterBinding) : RecyclerView.ViewHolder(binding.root) {
+        val deviceName= binding.deviceName
+        val deviceAddress = binding.macAddress
     }
 
 
 }
+
+
+
+
