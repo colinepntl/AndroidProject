@@ -46,6 +46,13 @@ class DeviceActivity : AppCompatActivity() {
         binding.connectText.text=getString(R.string.device_led_text)
         binding.progressBar.isVisible=false
         binding.led1.isVisible= true
+        binding.led2.isVisible= true
+        binding.led3.isVisible= true
+        binding.titleView.isVisible= true
+        binding.textView3.isVisible= true
+        binding.textView4.isVisible= true
+        binding.checkBox.isVisible= true
+        binding.counterText.isVisible= true
     }
 
 }
