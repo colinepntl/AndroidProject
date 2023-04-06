@@ -2,8 +2,12 @@ package fr.isen.colinepontal.androidsmartdevice
 
 import android.annotation.SuppressLint
 import android.bluetooth.*
+import android.content.res.ColorStateList
+import android.graphics.Color
 import android.os.Bundle
+import android.widget.ImageView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import fr.isen.colinepontal.androidsmartdevice.databinding.ActivityDeviceBinding
 
@@ -23,6 +27,21 @@ class DeviceActivity : AppCompatActivity() {
         val bluetoothDevice: BluetoothDevice?=intent.getParcelableExtra("device")
         val bluetoothGatt = bluetoothDevice?.connectGatt(this, false, bluetoothGattCallback)
         bluetoothGatt?.connect()
+
+
+        binding.led1.setOnClickListener {
+            changeLedColor(binding.led1)
+            //turnOnLEDs()
+        }
+        binding.led2.setOnClickListener {
+            changeLedColor(binding.led2)
+            //turnOnLEDs()
+        }
+        binding.led3.setOnClickListener {
+            changeLedColor(binding.led3)
+            //turnOnLEDs()
+        }
+
     }
 
 
@@ -54,5 +73,26 @@ class DeviceActivity : AppCompatActivity() {
         binding.checkBox.isVisible= true
         binding.counterText.isVisible= true
     }
+
+
+
+    private fun changeLedColor(imageView: ImageView) {
+        if (imageView.colorFilter == null) {
+            imageView.setColorFilter(Color.parseColor("#FFD700"))
+        } else {
+            imageView.colorFilter = null
+        }
+    }
+
+    /*
+    private fun turnOnLEDs() {
+    val ledCharacteristicUuid = UUID.fromString("xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx") // UUID de la caractéristique de commande d'allumage des LED
+    val ledOnData = byteArrayOf(0x01)
+
+    val ledCharacteristic = bluetoothGatt?.getService(serviceUuid)?.getCharacteristic(ledCharacteristicUuid)
+    ledCharacteristic?.value = ledOnData
+    bluetoothGatt?.writeCharacteristic(ledCharacteristic)
+}
+     */
 
 }
